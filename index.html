@@ -1,42 +1,39 @@
 <!DOCTYPE html>
 <html lang="ca">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Consentiment amb Signatura</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>Formulari de Consentiment</title>
+  <style>
+    canvas { border: 1px solid #ccc; margin-top: 10px; }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Formulari de Consentiment</h2>
+  <h1>Formulari de Consentiment</h1>
 
-    <form id="consent-form">
-      <label for="nom">Nom i Cognoms:</label>
-      <input type="text" id="nom" name="nom" required />
+  <form id="consent-form">
+    <label for="nom">Nom i Cognoms:</label><br>
+    <input type="text" id="nom" required><br><br>
 
-      <label for="dni">DNI:</label>
-      <input type="text" id="dni" name="dni" required />
+    <label for="dni">DNI:</label><br>
+    <input type="text" id="dni" required><br><br>
 
-      <label for="data">Data:</label>
-      <input type="date" id="data" name="data" required />
+    <label for="data">Data:</label><br>
+    <input type="date" id="data" required><br><br>
 
-      <label for="conformitat">Donar conformitat:</label>
-      <select id="conformitat" name="conformitat" required>
-        <option value="">-- Selecciona --</option>
-        <option value="Sí">Sí</option>
-        <option value="No">No</option>
-      </select>
+    <label for="conformitat">Dones conformitat?</label><br>
+    <select id="conformitat" required>
+      <option value="">Selecciona</option>
+      <option value="sí">Sí</option>
+      <option value="no">No</option>
+    </select><br><br>
 
-      <h3>Signa a continuació:</h3>
-      <canvas id="signature-pad" width="500" height="200"></canvas>
-      <div class="buttons">
-        <button type="button" id="clear">Borrar</button>
-        <button type="submit" id="submit">Enviar</button>
-      </div>
-    </form>
-  </div>
+    <label>Signatura:</label><br>
+    <canvas id="signature-pad" width="300" height="150"></canvas><br>
+    <button type="button" id="clear">Netejar firma</button><br><br>
 
-  <script src="script.js"></script>
-</body>
+    <button type="submit">Enviar formulari</button>
+  </form>
+
   <script type="module" src="script.js"></script>
+</body>
 </html>
