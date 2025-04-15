@@ -1,22 +1,26 @@
-// Firebase config
+// Firebase modular SDK
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
+
+// Configuración del proyecto
 const firebaseConfig = {
   apiKey: "AIzaSyD4szaF2xY7HdVbC-ZpHzEHKCPchNVo6SE",
   authDomain: "consentiment-rm.firebaseapp.com",
   projectId: "consentiment-rm",
-  storageBucket: "consentiment-rm.firebasestorage.app", // corregido aquí
+  storageBucket: "consentiment-rm.appspot.com", // <- Corregido
   messagingSenderId: "843641705557",
   appId: "1:843641705557:web:e2f1a5195a068f163b30dc"
 };
 
 // Inicializar Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const storage = firebase.storage();
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
 
-// Canvas para firma
+// Firma canvas
 const canvas = document.getElementById("signature-pad");
 const ctx = canvas.getContext("2d");
-
 let drawing = false;
 
 canvas.addEventListener("mousedown", () => drawing = true);
@@ -58,35 +62,28 @@ document.getElementById("consent-form").addEventListener("submit", async (e) => 
     return;
   }
 
-  // Convertir firma a blob
   canvas.toBlob(async (blob) => {
     try {
-      // Crear referencia única para firma
       const filename = firmes/${Date.now()}_${dni || 'anonim'}.png;
-      const storageRef = storage.ref().child(filename);
+      const firmaRef = ref(storage, filename);
+      await uploadBytes(firmaRef, blob);
+      const downloadURL = await getDownloadURL(firmaRef);
 
-      // Subir imagen
-      await storageRef.put(blob);
-
-      // Obtener URL de descarga
-      const downloadURL = await storageRef.getDownloadURL();
-
-      // Guardar datos en Firestore
-      await db.collection("formularis").add({
+      await addDoc(collection(db, "formularis"), {
         nom,
         dni,
         data,
         conformitat,
         firmaURL: downloadURL,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        timestamp: serverTimestamp()
       });
 
       alert("Formulari enviat correctament!");
       e.target.reset();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-    } catch (error) {
-      console.error("Error al enviar el formulari:", error);
-      alert("Hi ha hagut un error. Torna-ho a intentar.");
+    } catch (err) {
+      console.error("Error enviant el formulari:", err);
+      alert("Error. Torna-ho a provar.");
     }
   });
 });
