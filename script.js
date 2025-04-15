@@ -3,7 +3,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyD4szaF2xY7HdVbC-ZpHzEHKCPchNVo6SE",
   authDomain: "consentiment-rm.firebaseapp.com",
   projectId: "consentiment-rm",
-  storageBucket: "consentiment-rm.appspot.com", // corregido aquí
+  storageBucket: "consentiment-rm.firebasestorage.app", // corregido aquí
   messagingSenderId: "843641705557",
   appId: "1:843641705557:web:e2f1a5195a068f163b30dc"
 };
