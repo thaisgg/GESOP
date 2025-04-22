@@ -33,7 +33,7 @@ export default function TestConnection() {
         const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
         // Comprobar conexión
-        const { data, error } = await supabase.from("formulari_respostes").select("count()", { count: "exact" })
+        const { data, error } = await supabase.from("formulari_respostes").select("id").limit(1)
 
         if (error) {
           if (error.code === "PGRST116") {
@@ -48,7 +48,7 @@ export default function TestConnection() {
           // Conexión exitosa
           setTableExists(true)
           setStatus("success")
-          setMessage(`Conexión exitosa. La tabla existe y contiene ${data[0].count} registros.`)
+          setMessage(`Conexión exitosa. La tabla existe.`)
 
           // Verificar políticas RLS
           try {

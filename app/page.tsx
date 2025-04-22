@@ -385,14 +385,14 @@ export default function ConsentimientForm() {
   const testConnection = async () => {
     try {
       setDebugInfo("Comprobando conexión a Supabase...")
-      const { data, error } = await supabase.from("formulari_respostes").select("count()", { count: "exact" }).limit(1)
+      const { data, error } = await supabase.from("formulari_respostes").select("id").limit(1)
 
       if (error) {
         setDebugInfo(`Error de conexión: ${error.message}`)
         return false
       }
 
-      setDebugInfo(`Conexión exitosa. Registros: ${data[0]?.count || 0}`)
+      setDebugInfo(`Conexión exitosa. ${data?.length ? "Hay registros en la tabla." : "La tabla está vacía."}`)
       return true
     } catch (err) {
       setDebugInfo(`Error: ${(err as Error).message}`)
