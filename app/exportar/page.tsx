@@ -41,7 +41,7 @@ export default function ExportarDatos() {
     setIsLoading(true)
     try {
       const { data, error } = await supabase
-        .from("formulari_respostes")
+        .from("formulari_consentiment")
         .select("*")
         .order("created_at", { ascending: false })
 

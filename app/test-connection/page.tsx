@@ -33,14 +33,14 @@ export default function TestConnection() {
         const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
         // Comprobar conexión
-        const { data, error } = await supabase.from("formulari_respostes").select("id").limit(1)
+        const { data, error } = await supabase.from("formulari_consentiment").select("id").limit(1)
 
         if (error) {
           if (error.code === "PGRST116") {
             // La tabla no existe
             setTableExists(false)
             setStatus("error")
-            setMessage("La tabla formulari_respostes no existe. Ejecuta el SQL para crearla.")
+            setMessage("La tabla formulari_consentiment no existe. Ejecuta el SQL para crearla.")
           } else {
             throw error
           }
@@ -53,7 +53,7 @@ export default function TestConnection() {
           // Verificar políticas RLS
           try {
             const { data: policiesData, error: policiesError } = await supabase.rpc("get_table_policies", {
-              table_name: "formulari_respostes",
+              table_name: "formulari_consentiment",
             })
 
             if (!policiesError && policiesData) {
@@ -95,7 +95,7 @@ export default function TestConnection() {
           "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
       }
 
-      const { data, error } = await supabase.from("formulari_respostes").insert([testData]).select()
+      const { data, error } = await supabase.from("formulari_consentiment").insert([testData]).select()
 
       if (error) {
         alert(`Error al insertar: ${error.message}`)
@@ -153,7 +153,7 @@ export default function TestConnection() {
           <div className="mt-4 p-4 bg-white rounded border">
             <h3 className="font-bold">SQL para crear la tabla:</h3>
             <pre className="bg-gray-100 p-2 mt-2 overflow-x-auto text-sm">
-              {`CREATE TABLE IF NOT EXISTS formulari_respostes (
+              {`CREATE TABLE IF NOT EXISTS formulari_consentiment (
   id BIGSERIAL PRIMARY KEY,
   nom TEXT NOT NULL,
   dni TEXT NOT NULL,
@@ -164,25 +164,25 @@ export default function TestConnection() {
 );
 
 -- Configurar políticas de seguridad RLS (Row Level Security)
-ALTER TABLE formulari_respostes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE formulari_consentiment ENABLE ROW LEVEL SECURITY;
 
 -- Crear política para permitir inserciones anónimas
-CREATE POLICY insert_policy ON formulari_respostes
+CREATE POLICY insert_policy ON formulari_consentiment
   FOR INSERT TO anon
   WITH CHECK (true);
 
 -- Crear política para permitir lectura anónima
-CREATE POLICY select_policy ON formulari_respostes
+CREATE POLICY select_policy ON formulari_consentiment
   FOR SELECT TO anon
   USING (true);
 
 -- Crear política para permitir actualización anónima
-CREATE POLICY update_policy ON formulari_respostes
+CREATE POLICY update_policy ON formulari_consentiment
   FOR UPDATE TO anon
   USING (true);
 
 -- Crear política para permitir eliminación anónima
-CREATE POLICY delete_policy ON formulari_respostes
+CREATE POLICY delete_policy ON formulari_consentiment
   FOR DELETE TO anon
   USING (true);`}
             </pre>

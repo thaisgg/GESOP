@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Insertar datos en la tabla
-    const { data, error } = await supabase.from("formulari_respostes").insert([formData]).select()
+    const { data, error } = await supabase.from("formulari_consentiment").insert([formData]).select()
 
     if (error) {
       console.error("Error al insertar datos:", error)

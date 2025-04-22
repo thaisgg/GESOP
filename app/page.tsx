@@ -256,7 +256,7 @@ export default function ConsentimientForm() {
       setDebugInfo("Enviando datos a Supabase...")
 
       // Guardar en Supabase - ENFOQUE DIRECTO
-      const { data, error } = await supabase.from("formulari_respostes").insert([dataToSend])
+      const { data, error } = await supabase.from("formulari_consentiment").insert([dataToSend])
 
       if (error) {
         setDebugInfo(`Error de Supabase: ${error.message} (${error.code})`)
@@ -327,7 +327,7 @@ export default function ConsentimientForm() {
 
     try {
       const { data, error } = await supabase
-        .from("formulari_respostes")
+        .from("formulari_consentiment")
         .select("*")
         .order("created_at", { ascending: false })
 
@@ -410,7 +410,7 @@ export default function ConsentimientForm() {
 
       try {
         // Eliminar registros de la base de datos
-        const { error } = await supabase.from("formulari_respostes").delete().gt("id", 0)
+        const { error } = await supabase.from("formulari_consentiment").delete().gt("id", 0)
 
         if (error) {
           throw new Error(error.message)
@@ -459,7 +459,7 @@ export default function ConsentimientForm() {
       }
 
       // Probar conexión básica
-      const { data, error } = await supabase.from("formulari_respostes").select("id").limit(1)
+      const { data, error } = await supabase.from("formulari_consentiment").select("id").limit(1)
 
       if (error) {
         setDebugInfo(`Error de conexión: ${error.message} (${error.code})`)
@@ -476,7 +476,7 @@ export default function ConsentimientForm() {
           "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
       }
 
-      const { error: insertError } = await supabase.from("formulari_respostes").insert([testData])
+      const { error: insertError } = await supabase.from("formulari_consentiment").insert([testData])
 
       if (insertError) {
         setDebugInfo(`Error al insertar datos de prueba: ${insertError.message} (${insertError.code})`)

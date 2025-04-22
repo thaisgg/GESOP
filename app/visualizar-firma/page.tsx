@@ -28,7 +28,7 @@ export default function VisualizarFirma() {
 
     try {
       const { data, error } = await supabase
-        .from("formulari_respostes")
+        .from("formulari_consentiment")
         .select("*")
         .eq("dni", dni)
         .order("created_at", { ascending: false })
