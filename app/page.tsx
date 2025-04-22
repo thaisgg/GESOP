@@ -22,6 +22,12 @@ export default function ConsentimientForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedSignature, setSelectedSignature] = useState<string | null>(null)
   const [debugInfo, setDebugInfo] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    nom: "",
+    dni: "",
+    dataenviament: "",
+    consentiment: "",
+  })
 
   // Contraseña de administrador
   const ADMIN_PASSWORD = "admin1234"
@@ -105,6 +111,8 @@ export default function ConsentimientForm() {
     const year = today.getFullYear()
     const formattedDate = `${day}/${month}/${year}`
 
+    setFormData((prev) => ({ ...prev, dataenviament: formattedDate }))
+
     const dateField = document.getElementById("dataEnviament") as HTMLInputElement
     if (dateField) {
       dateField.value = formattedDate
@@ -118,108 +126,166 @@ export default function ConsentimientForm() {
     }
   }
 
+  // Manejar cambios en los campos del formulario
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Manejar cambios en el campo DNI
+  const handleDniInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    const numericPart = value.slice(0, 8).replace(/[^0-9]/g, "")
+    const letterPart = value.length > 8 ? value.slice(8, 9).replace(/[^a-zA-Z]/g, "") : ""
+    const newValue = numericPart + letterPart
+    e.target.value = newValue
+    setFormData((prev) => ({ ...prev, dni: newValue }))
+  }
+
+  // Manejar cambio en radio buttons
+  const handleRadioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, consentiment: e.target.value }))
+  }
+
+  // Función para reducir el tamaño de la imagen base64
+  const resizeSignatureBase64 = (base64: string, maxWidth = 300, maxHeight = 150): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement("canvas")
+        let width = img.width
+        let height = img.height
+
+        // Calcular nuevas dimensiones manteniendo la proporción
+        if (width > maxWidth) {
+          height = Math.round(height * (maxWidth / width))
+          width = maxWidth
+        }
+        if (height > maxHeight) {
+          width = Math.round(width * (maxHeight / height))
+          height = maxHeight
+        }
+
+        canvas.width = width
+        canvas.height = height
+
+        const ctx = canvas.getContext("2d")
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL("image/png", 0.7)) // Calidad reducida a 0.7
+        } else {
+          resolve(base64) // Fallback al original si hay error
+        }
+      }
+      img.onerror = () => resolve(base64) // Fallback al original si hay error
+      img.src = base64
+    })
+  }
+
   // Validar y enviar formulario con manejo mejorado de errores
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setDebugInfo(null)
 
     let isValid = true
+    const errorMessages = []
 
     // Validar nombre
-    const nomInput = document.getElementById("nom") as HTMLInputElement
-    const nom = nomInput.value.trim()
-    const nomError = document.getElementById("nomError") as HTMLDivElement
-
-    if (!nom) {
-      nomError.style.display = "block"
+    if (!formData.nom.trim()) {
+      document.getElementById("nomError")!.style.display = "block"
       isValid = false
+      errorMessages.push("Falta el nombre")
     } else {
-      nomError.style.display = "none"
+      document.getElementById("nomError")!.style.display = "none"
     }
 
     // Validar DNI
-    const dniInput = document.getElementById("dni") as HTMLInputElement
-    const dni = dniInput.value.trim()
-    const dniError = document.getElementById("dniError") as HTMLDivElement
-
-    if (!dni || !/^\d{8}[a-zA-Z]$/.test(dni)) {
-      dniError.style.display = "block"
+    if (!formData.dni || !/^\d{8}[a-zA-Z]$/.test(formData.dni)) {
+      document.getElementById("dniError")!.style.display = "block"
       isValid = false
+      errorMessages.push("DNI inválido")
     } else {
-      dniError.style.display = "none"
+      document.getElementById("dniError")!.style.display = "none"
     }
 
     // Validar consentimiento
-    const consentimentChecked = document.querySelector('input[name="consentiment"]:checked') as HTMLInputElement
-    const consentimentError = document.getElementById("consentimentError") as HTMLDivElement
-
-    if (!consentimentChecked) {
-      consentimentError.style.display = "block"
+    if (!formData.consentiment) {
+      document.getElementById("consentimentError")!.style.display = "block"
       isValid = false
+      errorMessages.push("Falta seleccionar consentimiento")
     } else {
-      consentimentError.style.display = "none"
+      document.getElementById("consentimentError")!.style.display = "none"
     }
 
     // Validar firma
-    const signatureError = document.getElementById("signatureError") as HTMLDivElement
-
     if (signaturePadRef.current && signaturePadRef.current.isEmpty()) {
-      signatureError.style.display = "block"
+      document.getElementById("signatureError")!.style.display = "block"
       isValid = false
+      errorMessages.push("Falta la firma")
     } else {
-      signatureError.style.display = "none"
+      document.getElementById("signatureError")!.style.display = "none"
     }
 
-    if (isValid) {
-      setIsSubmitting(true)
+    if (!isValid) {
+      setDebugInfo(`Errores de validación: ${errorMessages.join(", ")}`)
+      return
+    }
 
-      try {
-        // Obtener datos del formulario
-        const dataEnviamentInput = document.getElementById("dataEnviament") as HTMLInputElement
-        const signatureBase64 = signaturePadRef.current.toDataURL()
+    setIsSubmitting(true)
+    setDebugInfo("Procesando formulario...")
 
-        // Preparar datos para guardar - USAMOS DIRECTAMENTE BASE64
-        const formData = {
-          nom: nom,
-          dni: dni,
-          dataenviament: dataEnviamentInput.value,
-          consentiment: consentimentChecked.value,
-          signatura: signatureBase64,
-          signatura_preview: signatureBase64.substring(0, 100) + "...", // Versión truncada para previsualización
-        }
+    try {
+      // Obtener firma y reducir su tamaño
+      let signatureBase64 = signaturePadRef.current.toDataURL("image/png", 0.7)
+      setDebugInfo("Firma capturada. Reduciendo tamaño...")
 
-        // Guardar en Supabase - ENFOQUE DIRECTO
-        const { data, error } = await supabase.from("formulari_respostes").insert([formData]).select()
+      // Reducir tamaño de la firma
+      signatureBase64 = await resizeSignatureBase64(signatureBase64)
 
-        if (error) {
-          console.error("Error al insertar datos en Supabase:", error)
-          setDebugInfo(`Error: ${error.message}`)
-          throw new Error(`Error al guardar los datos: ${error.message}`)
-        }
+      setDebugInfo("Firma procesada. Preparando datos para enviar...")
 
-        console.log("Datos guardados correctamente:", data)
-        alert("Formulari enviat correctament!")
-
-        // Resetear formulario
-        const form = document.getElementById("consentForm") as HTMLFormElement
-        form.reset()
-        setFormattedDate()
-        clearSignature()
-      } catch (error) {
-        console.error("Error al procesar el formulario:", error)
-        alert(`Hi ha hagut un problema en desar les dades. Si us plau, torna-ho a provar.`)
-      } finally {
-        setIsSubmitting(false)
+      // Preparar datos para guardar
+      const dataToSend = {
+        nom: formData.nom,
+        dni: formData.dni,
+        dataenviament: formData.dataenviament,
+        consentiment: formData.consentiment,
+        signatura: signatureBase64,
       }
-    }
-  }
 
-  // Manejar input de DNI (8 números + letra obligatoria)
-  const handleDniInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    const numericPart = value.slice(0, 8).replace(/[^0-9]/g, "")
-    const letterPart = value.length > 8 ? value.slice(8, 9).replace(/[^a-zA-Z]/g, "") : ""
-    e.target.value = numericPart + letterPart
+      setDebugInfo("Enviando datos a Supabase...")
+
+      // Guardar en Supabase - ENFOQUE DIRECTO
+      const { data, error } = await supabase.from("formulari_respostes").insert([dataToSend])
+
+      if (error) {
+        setDebugInfo(`Error de Supabase: ${error.message} (${error.code})`)
+        throw new Error(`Error al guardar los datos: ${error.message}`)
+      }
+
+      setDebugInfo("Datos guardados correctamente")
+      alert("Formulari enviat correctament!")
+
+      // Resetear formulario
+      setFormData({
+        nom: "",
+        dni: "",
+        dataenviament: new Date().toLocaleDateString("es-ES"),
+        consentiment: "",
+      })
+      clearSignature()
+
+      // Resetear campos del formulario
+      const form = document.getElementById("consentForm") as HTMLFormElement
+      form.reset()
+      setFormattedDate()
+    } catch (error) {
+      console.error("Error al procesar el formulario:", error)
+      setDebugInfo(`Error final: ${(error as Error).message}`)
+      alert(`Hi ha hagut un problema en desar les dades. Si us plau, torna-ho a provar.`)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Mostrar modal de admin
@@ -320,11 +386,11 @@ export default function ConsentimientForm() {
 
     // Crear contenido CSV
     let csvContent = "data:text/csv;charset=utf-8,"
-    csvContent += "Nom,DNI,Data,Consentiment,Signatura URL\n"
+    csvContent += "Nom,DNI,Data,Consentiment\n"
 
     // Añadir filas de datos
     submissions.forEach((item) => {
-      csvContent += `${item.nom},${item.dni},${item.dataenviament},${item.consentiment},${item.signatura}\n`
+      csvContent += `${item.nom},${item.dni},${item.dataenviament},${item.consentiment}\n`
     })
 
     // Crear enlace de descarga para el CSV
@@ -385,17 +451,42 @@ export default function ConsentimientForm() {
   const testConnection = async () => {
     try {
       setDebugInfo("Comprobando conexión a Supabase...")
-      const { data, error } = await supabase.from("formulari_respostes").select("id").limit(1)
 
-      if (error) {
-        setDebugInfo(`Error de conexión: ${error.message}`)
+      // Verificar que tenemos las variables de entorno
+      if (!supabaseUrl || !supabaseAnonKey) {
+        setDebugInfo("Error: Faltan variables de entorno de Supabase")
         return false
       }
 
-      setDebugInfo(`Conexión exitosa. ${data?.length ? "Hay registros en la tabla." : "La tabla está vacía."}`)
+      // Probar conexión básica
+      const { data, error } = await supabase.from("formulari_respostes").select("id").limit(1)
+
+      if (error) {
+        setDebugInfo(`Error de conexión: ${error.message} (${error.code})`)
+        return false
+      }
+
+      // Probar inserción de un registro de prueba
+      const testData = {
+        nom: "Test Connection",
+        dni: "12345678Z",
+        dataenviament: new Date().toLocaleDateString(),
+        consentiment: "Si",
+        signatura:
+          "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      }
+
+      const { error: insertError } = await supabase.from("formulari_respostes").insert([testData])
+
+      if (insertError) {
+        setDebugInfo(`Error al insertar datos de prueba: ${insertError.message} (${insertError.code})`)
+        return false
+      }
+
+      setDebugInfo("Conexión exitosa. Se ha insertado un registro de prueba correctamente.")
       return true
     } catch (err) {
-      setDebugInfo(`Error: ${(err as Error).message}`)
+      setDebugInfo(`Error inesperado: ${(err as Error).message}`)
       return false
     }
   }
@@ -431,7 +522,7 @@ export default function ConsentimientForm() {
         <form id="consentForm" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="nom">Nom i Cognoms:</label>
-            <input type="text" id="nom" name="nom" required />
+            <input type="text" id="nom" name="nom" value={formData.nom} onChange={handleInputChange} required />
             <div className="error" id="nomError">
               Aquest camp és obligatori
             </div>
@@ -439,7 +530,15 @@ export default function ConsentimientForm() {
 
           <div className="form-group">
             <label htmlFor="dni">DNI (8 números + lletra):</label>
-            <input type="text" id="dni" name="dni" maxLength={9} required onChange={handleDniInput} />
+            <input
+              type="text"
+              id="dni"
+              name="dni"
+              value={formData.dni}
+              maxLength={9}
+              required
+              onChange={handleDniInput}
+            />
             <div className="error" id="dniError">
               Si us plau, introdueix 8 números i una lletra
             </div>
@@ -447,7 +546,7 @@ export default function ConsentimientForm() {
 
           <div className="form-group">
             <label htmlFor="dataEnviament">Data enviament:</label>
-            <input type="text" id="dataEnviament" name="dataEnviament" readOnly />
+            <input type="text" id="dataEnviament" name="dataEnviament" value={formData.dataenviament} readOnly />
           </div>
 
           <p className="description">
@@ -461,11 +560,26 @@ export default function ConsentimientForm() {
             <label>Consentiment:</label>
             <div className="radio-group">
               <div>
-                <input type="radio" id="consentimentSi" name="consentiment" value="Si" required />
+                <input
+                  type="radio"
+                  id="consentimentSi"
+                  name="consentiment"
+                  value="Si"
+                  checked={formData.consentiment === "Si"}
+                  onChange={handleRadioChange}
+                  required
+                />
                 <label htmlFor="consentimentSi">Si, dono la meva conformitat a fer-me el RM</label>
               </div>
               <div>
-                <input type="radio" id="consentimentNo" name="consentiment" value="No" />
+                <input
+                  type="radio"
+                  id="consentimentNo"
+                  name="consentiment"
+                  value="No"
+                  checked={formData.consentiment === "No"}
+                  onChange={handleRadioChange}
+                />
                 <label htmlFor="consentimentNo">No desitjo fer-me el RM</label>
               </div>
             </div>
