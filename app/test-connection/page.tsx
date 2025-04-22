@@ -11,6 +11,7 @@ export default function TestConnection() {
     url: "",
     anonKey: "",
   })
+  const [policies, setPolicies] = useState<any[]>([])
 
   useEffect(() => {
     async function checkConnection() {
@@ -48,6 +49,19 @@ export default function TestConnection() {
           setTableExists(true)
           setStatus("success")
           setMessage(`Conexión exitosa. La tabla existe y contiene ${data[0].count} registros.`)
+
+          // Verificar políticas RLS
+          try {
+            const { data: policiesData, error: policiesError } = await supabase.rpc("get_table_policies", {
+              table_name: "formulari_respostes",
+            })
+
+            if (!policiesError && policiesData) {
+              setPolicies(policiesData)
+            }
+          } catch (e) {
+            console.error("Error al verificar políticas:", e)
+          }
         }
       } catch (error) {
         console.error("Error al comprobar conexión:", error)
@@ -58,6 +72,40 @@ export default function TestConnection() {
 
     checkConnection()
   }, [])
+
+  // Función para probar una inserción
+  const testInsert = async () => {
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        alert("Faltan variables de entorno")
+        return
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+      const testData = {
+        nom: "Test Connection",
+        dni: "12345678Z",
+        dataenviament: new Date().toLocaleDateString(),
+        consentiment: "Si",
+        signatura:
+          "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      }
+
+      const { data, error } = await supabase.from("formulari_respostes").insert([testData]).select()
+
+      if (error) {
+        alert(`Error al insertar: ${error.message}`)
+      } else {
+        alert(`Inserción exitosa. ID: ${data[0].id}`)
+      }
+    } catch (error) {
+      alert(`Error: ${(error as Error).message}`)
+    }
+  }
 
   return (
     <div className="container mx-auto p-4">
@@ -76,6 +124,30 @@ export default function TestConnection() {
           {status === "loading" ? "Comprobando conexión..." : status === "success" ? "Conexión exitosa" : "Error"}
         </h2>
         <p className="mt-2">{message}</p>
+
+        {tableExists && (
+          <div className="mt-4">
+            <button
+              onClick={testInsert}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Probar inserción
+            </button>
+          </div>
+        )}
+
+        {policies.length > 0 && (
+          <div className="mt-4">
+            <h3 className="font-bold">Políticas RLS:</h3>
+            <ul className="list-disc pl-5 mt-2">
+              {policies.map((policy, index) => (
+                <li key={index}>
+                  {policy.policyname}: {policy.permissive} para {policy.cmd} ({policy.qual})
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {!tableExists && (
           <div className="mt-4 p-4 bg-white rounded border">
@@ -102,6 +174,16 @@ CREATE POLICY insert_policy ON formulari_respostes
 -- Crear política para permitir lectura anónima
 CREATE POLICY select_policy ON formulari_respostes
   FOR SELECT TO anon
+  USING (true);
+
+-- Crear política para permitir actualización anónima
+CREATE POLICY update_policy ON formulari_respostes
+  FOR UPDATE TO anon
+  USING (true);
+
+-- Crear política para permitir eliminación anónima
+CREATE POLICY delete_policy ON formulari_respostes
+  FOR DELETE TO anon
   USING (true);`}
             </pre>
           </div>

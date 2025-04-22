@@ -21,6 +21,7 @@ export default function ConsentimientForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedSignature, setSelectedSignature] = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string | null>(null)
 
   // Contraseña de administrador
   const ADMIN_PASSWORD = "admin1234"
@@ -117,105 +118,10 @@ export default function ConsentimientForm() {
     }
   }
 
-  // Función para convertir base64 a Blob
-  const base64ToBlob = (base64: string): Blob => {
-    try {
-      // Extraer la parte de datos del base64
-      const parts = base64.split(";base64,")
-      const contentType = parts[0].split(":")[1]
-      const raw = window.atob(parts[1])
-      const rawLength = raw.length
-      const uInt8Array = new Uint8Array(rawLength)
-
-      for (let i = 0; i < rawLength; ++i) {
-        uInt8Array[i] = raw.charCodeAt(i)
-      }
-
-      return new Blob([uInt8Array], { type: contentType })
-    } catch (error) {
-      console.error("Error al convertir base64 a Blob:", error)
-      throw new Error("Error al procesar la firma")
-    }
-  }
-
-  // Función para intentar crear el bucket si no existe
-  const ensureSignaturesBucketExists = async (): Promise<boolean> => {
-    try {
-      // Verificar si el bucket ya existe
-      const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets()
-
-      if (bucketsError) {
-        console.error("Error al listar buckets:", bucketsError)
-        return false
-      }
-
-      const signaturesBucketExists = buckets?.some((bucket) => bucket.name === "signatures")
-
-      if (!signaturesBucketExists) {
-        // Intentar crear el bucket
-        const { error: createError } = await supabase.storage.createBucket("signatures", {
-          public: true,
-          fileSizeLimit: 1024 * 1024, // 1MB
-        })
-
-        if (createError) {
-          console.error("Error al crear bucket:", createError)
-          return false
-        }
-
-        console.log("Bucket 'signatures' creado correctamente")
-      }
-
-      return true
-    } catch (error) {
-      console.error("Error al verificar/crear bucket:", error)
-      return false
-    }
-  }
-
-  // Función para subir firma a Supabase Storage con manejo mejorado de errores
-  const uploadSignature = async (signatureBase64: string, dni: string): Promise<string> => {
-    try {
-      // Asegurar que el bucket existe
-      const bucketExists = await ensureSignaturesBucketExists()
-
-      if (!bucketExists) {
-        console.warn("No se pudo verificar/crear el bucket. Usando base64 directamente.")
-        return signatureBase64 // Fallback a usar base64 directamente
-      }
-
-      // Convertir base64 a Blob
-      const blob = base64ToBlob(signatureBase64)
-
-      // Generar un nombre único para el archivo
-      const fileName = `firma_${dni.replace(/[^a-zA-Z0-9]/g, "")}_${Date.now()}.png`
-
-      // Subir a Supabase Storage
-      const { data, error } = await supabase.storage.from("signatures").upload(fileName, blob, {
-        contentType: "image/png",
-        upsert: true,
-      })
-
-      if (error) {
-        console.error("Error al subir firma a Storage:", error)
-        // Si falla la subida, devolver el base64 como fallback
-        return signatureBase64
-      }
-
-      // Obtener la URL pública del archivo
-      const { data: urlData } = supabase.storage.from("signatures").getPublicUrl(fileName)
-
-      return urlData.publicUrl
-    } catch (error) {
-      console.error("Error en uploadSignature:", error)
-      // En caso de cualquier error, usar el base64 directamente
-      return signatureBase64
-    }
-  }
-
   // Validar y enviar formulario con manejo mejorado de errores
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setDebugInfo(null)
 
     let isValid = true
 
@@ -272,33 +178,26 @@ export default function ConsentimientForm() {
         const dataEnviamentInput = document.getElementById("dataEnviament") as HTMLInputElement
         const signatureBase64 = signaturePadRef.current.toDataURL()
 
-        // Obtener URL de la firma (o usar base64 como fallback)
-        let signatureUrl = signatureBase64
-        try {
-          signatureUrl = await uploadSignature(signatureBase64, dni)
-        } catch (uploadError) {
-          console.error("Error al subir firma, usando base64:", uploadError)
-          // Seguimos con el base64 como fallback
-        }
-
-        // Preparar datos para guardar
+        // Preparar datos para guardar - USAMOS DIRECTAMENTE BASE64
         const formData = {
           nom: nom,
           dni: dni,
           dataenviament: dataEnviamentInput.value,
           consentiment: consentimentChecked.value,
-          signatura: signatureUrl,
+          signatura: signatureBase64,
           signatura_preview: signatureBase64.substring(0, 100) + "...", // Versión truncada para previsualización
         }
 
-        // Guardar en Supabase
-        const { error } = await supabase.from("formulari_respostes").insert([formData])
+        // Guardar en Supabase - ENFOQUE DIRECTO
+        const { data, error } = await supabase.from("formulari_respostes").insert([formData]).select()
 
         if (error) {
           console.error("Error al insertar datos en Supabase:", error)
+          setDebugInfo(`Error: ${error.message}`)
           throw new Error(`Error al guardar los datos: ${error.message}`)
         }
 
+        console.log("Datos guardados correctamente:", data)
         alert("Formulari enviat correctament!")
 
         // Resetear formulario
@@ -444,34 +343,6 @@ export default function ConsentimientForm() {
       setIsLoading(true)
 
       try {
-        // Primero obtener todas las firmas para eliminarlas del storage
-        const { data, error: fetchError } = await supabase.from("formulari_respostes").select("signatura")
-
-        if (fetchError) {
-          throw new Error(fetchError.message)
-        }
-
-        // Eliminar archivos de Storage
-        if (data && data.length > 0) {
-          // Extraer los nombres de archivo de las URLs
-          const fileNames = data
-            .map((item) => {
-              const url = item.signatura
-              if (!url || url.startsWith("data:")) return null // Ignorar base64
-              const parts = url.split("/")
-              return parts[parts.length - 1]
-            })
-            .filter(Boolean)
-
-          if (fileNames.length > 0) {
-            const { error: storageError } = await supabase.storage.from("signatures").remove(fileNames)
-
-            if (storageError) {
-              console.error("Error al eliminar archivos:", storageError)
-            }
-          }
-        }
-
         // Eliminar registros de la base de datos
         const { error } = await supabase.from("formulari_respostes").delete().gt("id", 0)
 
@@ -508,6 +379,25 @@ export default function ConsentimientForm() {
   const refreshData = async () => {
     await fetchSubmissions()
     alert("Dades actualitzades correctament")
+  }
+
+  // Verificar conexión a Supabase
+  const testConnection = async () => {
+    try {
+      setDebugInfo("Comprobando conexión a Supabase...")
+      const { data, error } = await supabase.from("formulari_respostes").select("count()", { count: "exact" }).limit(1)
+
+      if (error) {
+        setDebugInfo(`Error de conexión: ${error.message}`)
+        return false
+      }
+
+      setDebugInfo(`Conexión exitosa. Registros: ${data[0]?.count || 0}`)
+      return true
+    } catch (err) {
+      setDebugInfo(`Error: ${(err as Error).message}`)
+      return false
+    }
   }
 
   return (
@@ -608,7 +498,25 @@ export default function ConsentimientForm() {
                 "Enviar"
               )}
             </button>
+            <button type="button" onClick={testConnection} style={{ backgroundColor: "#3498db" }}>
+              Provar connexió
+            </button>
           </div>
+
+          {debugInfo && (
+            <div
+              style={{
+                marginTop: "10px",
+                padding: "10px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "4px",
+                fontSize: "12px",
+              }}
+            >
+              <strong>Informació de diagnòstic:</strong>
+              <pre style={{ whiteSpace: "pre-wrap", margin: "5px 0 0 0" }}>{debugInfo}</pre>
+            </div>
+          )}
         </form>
       </div>
 
